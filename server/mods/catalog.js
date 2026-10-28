@@ -1,6 +1,6 @@
 // What the agent may build from (contract §5.4 work/docs/catalog/*.json): the anchors and references of format 1 with
-// their English and Bulgarian names, the ladders and the ids already in use on this farm. Built per job.
-//   buildCatalog({ overlay, graveyard, bgNames, tracks, level }) -> { farm, crops, trees, recipes, buildings, animals,
+// their English and Russian names, the ladders and the ids already in use on this farm. Built per job.
+//   buildCatalog({ overlay, graveyard, ruNames, tracks, level }) -> { farm, crops, trees, recipes, buildings, animals,
 //                                                              decor, items, npcs, letterArt, music, ladders, idsInUse }
 // Release 1.0 (harvey#5, #6): with the farm's `level`, every anchor says whether this farm can use it now (`usable`:
 // its unlock <= the level; a thing built from a later anchor arrives later, and the summary must say "from level N"),
@@ -11,15 +11,15 @@ import { cropDayOf, fastestGrowMin } from './econ-guard.js';
 
 const MIN = 60_000;
 
-export function buildCatalog({ overlay = null, graveyard = {}, bgNames = {}, tracks = [], level = null } = {}) {
+export function buildCatalog({ overlay = null, graveyard = {}, ruNames = {}, tracks = [], level = null } = {}) {
   const T = cloneTables();
   const L = Number.isInteger(level) && level > 0 ? level : null;
   // usable only when the farm's level is known (a catalog without one says nothing either way)
   const use = (unlock) => (L === null ? {} : { usable: (unlock ?? 1) <= L });
   const baseDay = L === null ? null : cropDayOf((T.crops ?? []).filter((c) => isLive(c)), L);
   const live = (fam) => (T[fam] ?? []).filter((d) => isLive(d));
-  const bg = (id) => bgNames[id]?.name ?? null;
-  const nm = (d) => ({ en: d.name, bg: bg(d.id) });
+  const ru = (id) => ruNames[id]?.name ?? null;
+  const nm = (d) => ({ en: d.name, ru: ru(d.id) });
   const items = new Map(T.items.map((i) => [i.id, i]));
   const recipeBuildings = new Set(live('recipes').map((r) => r.building));
   const ownGoods = new Set([...live('crops'), ...live('recipes')].map((d) => d.id));

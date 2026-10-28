@@ -17,7 +17,7 @@ import { assetUrl } from '../net/asset-base.js';
 import { h, kv } from './dom.js';
 import { LAYOUT_Q } from './layout.js';
 import { farmName } from '../../../shared/brand.js';
-import { t, liveRows, live, lang, setLang, LANGS, LANG_NAMES, fmtPct } from '../i18n/index.js';
+import { t, liveRows, live, fmtPct } from '../i18n/index.js';
 
 const KEY = 'hh.settings';
 const REDUCE_Q = '(prefers-reduced-motion: reduce)';
@@ -368,17 +368,7 @@ export function createSettings(S) {
     ];
   }
 
-  /** Language (i18n): the two languages in their own words; a tap switches the whole game at once (ui/index.js relocalize). */
-  function langRow() {
-    const row = h('div.set-row.set-lang', h('span.lbl', { id: 'set-lang' }, t('lang.label')));
-    const group = h('div.seg', { role: 'group', 'aria-labelledby': 'set-lang' });
-    for (const l of LANGS) {
-      group.append(h('button', { type: 'button', lang: l, dataset: { v: l, lang: l }, 'aria-pressed': String(lang() === l),
-        on: { click: () => { setLang(l); } } }, LANG_NAMES[l]));
-    }
-    row.append(group, h('span.help', t('lang.help')));
-    return row;
-  }
+  /** Language (i18n): the game has one language (Russian), so there is no language row. */
 
   S.ui.panels.register('settings', {
     get title() { return t('settings.title'); },
@@ -395,7 +385,6 @@ export function createSettings(S) {
       const grid = h('div.settings');
       if (ctx.tab === 'look') {
         grid.append(
-          langRow(),
           h('h3', t('settings.graphics')),
           seg(t('settings.quality'), 'quality', [['auto', t('settings.q.auto')], ['high', t('settings.q.high')], ['medium', t('settings.q.medium')],
             ['low', t('settings.q.low')], ['eco', t('settings.q.eco')]], t('settings.qualityHelp')),

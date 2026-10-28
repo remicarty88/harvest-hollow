@@ -8,12 +8,9 @@
 // ideas form, front/ideas.js) and the screenshots (front/gallery.js), each in a sheet.
 // The first view is the page, css/landing.css, one font, the logo and the orb's still. After the first paint: the
 // orbiting farm video (never under reduced motion or Save-Data), the star count, and the sheets' code and styles.
-// Words: the 'front' catalog area (i18n/front.js; the title and description are 'multi.ld.*'), English or Bulgarian, with
-// the English · Български toggle in the top corner (remembered on this device, i18n/core.js); a Bulgarian page waits
-// for its catalog before it shows (landing.html), and a switch re-says everything, the open sheets included.
+// Words: the 'front' catalog area (i18n/front.js; the title and description are 'multi.ld.*'), Russian.
 import { createFarmScope, farmsOnDevice, forgetFarm, rememberFarm, startFarm, farmLinkPath, isStandalone } from './net/farm.js';
 import { t, ready, loaded, onLang, applyStatic, retell } from './i18n/front.js';
-import { langToggle } from './ui/lang-toggle.js';
 import { assetUrl } from './net/asset-base.js';
 
 const $ = (id) => document.getElementById(id);
@@ -291,11 +288,10 @@ async function boot() {
     location.replace(`/f/${encodeURIComponent(newest.id)}`);
     return;
   }
-  // the language first (Bulgarian loads only when chosen), then the words, then the page shows
+  // the words, then the page shows
   await ready();
   relabel();
   document.documentElement.classList.remove('i18n-wait');
-  $('ld-lang').append(langToggle());
   onLang(() => {
     relabel();
     // the sheets built so far say it again (what was typed stays); the screenshots re-say themselves (front/gallery.js)

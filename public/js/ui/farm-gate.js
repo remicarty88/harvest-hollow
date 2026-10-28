@@ -20,12 +20,11 @@
 //                                    from an http(s) manifest: there the link is the keyless /f/<id>/manifest.webmanifest.
 import { assetUrl } from '../net/asset-base.js';
 import { h, ensureStylesheet } from './dom.js';
-import { langToggle } from './lang-toggle.js';
 import { createFarmScope, farmsOnDevice, personalLink, parseFarmLink, farmLinkPath, isAndroid, TTL_DAYS } from '../net/farm.js';
 import { waysBack } from './link-open.js';
 import { PRIVACY_PATH } from '../front/links.js';
 import { BRAND } from '../../../shared/brand.js';
-import { t, getters, lang } from '../i18n/index.js';
+import { t, getters } from '../i18n/index.js';
 
 export const GATE_TEXT = getters({
   private: {
@@ -110,7 +109,7 @@ export function showFarmGate(kind, { farmId = null, doc = globalThis.document, l
     'aria-describedby': 'farm-gate-lead', dataset: { gate: kind in GATE_TEXT ? kind : 'private' } },
   h('div.slot-card.wood.gate-card',
     h('div.slot-title', h('img.slot-logo', { src: assetUrl('/assets/art/logo-wide.png'), alt: BRAND, width: '1400', height: '336' })),
-    h('div.slot-paper.paper', langToggle(() => showFarmGate(kind, { farmId, doc, loc, st })),
+    h('div.slot-paper.paper',
       h('h2.gate-title#farm-gate-title', { tabindex: '-1' }, text.title),
       h('p.gate-lead#farm-gate-lead', text.lead),
       text.note ? h('p.gate-note', text.note) : null,
@@ -130,8 +129,8 @@ export function showFarmGate(kind, { farmId = null, doc = globalThis.document, l
   return el;
 }
 
-/** Android's keyless home-screen manifest of a farm in a language (the server answers ?lang=bg in Bulgarian). Pure. */
-export const farmManifestHref = (href, l) => `${String(href).replace(/\?.*$/, '')}${l === 'bg' ? '?lang=bg' : ''}`;
+/** Android's keyless home-screen manifest of a farm (one language now: no ?lang= needed). Pure. */
+export const farmManifestHref = (href) => String(href).replace(/\?.*$/, '');
 
 /** The home-screen manifest of this farm (see the header). Never throws; a failed fetch keeps the page's own. */
 export async function installFarmManifest(id, secret, { doc = globalThis.document, fetcher = globalThis.fetch, origin = globalThis.location?.origin,
@@ -141,7 +140,7 @@ export async function installFarmManifest(id, secret, { doc = globalThis.documen
     if (!link || !origin || !createFarmScope(id).multi) return null;
     if (!link.dataset.base) link.dataset.base = link.getAttribute('href');
     if (isAndroid(nav)) {
-      const href = farmManifestHref(`/f/${encodeURIComponent(id)}/manifest.webmanifest`, lang());
+      const href = farmManifestHref(`/f/${encodeURIComponent(id)}/manifest.webmanifest`);
       link.setAttribute('href', href);
       return { id: `/f/${id}`, start_url: `/f/${id}`, href };
     }

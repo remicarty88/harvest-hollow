@@ -1,46 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="utf-8">
   <!-- The multi-farm front door (docs/agent-briefs/multi-farm.md): served at / when HH_MODE=multi. The game page itself is
        /f/<farmId> (index.html). Static: it needs no build stamp. One screen (owner request 2026-10-05, "simpler, more
        vibrant, more futuristic"): a golden-hour sky, the living farm in a glass orb, and ONE big action, Play (start a new
-       farm; release 1.0 O7, astra#9), with how the partner joins under it. Everything else is a small pill in the row
-       below: the way back in, Star us and GitHub, ideas, screenshots, privacy, self-hosting (js/landing.js).
-       First view: this file, css/landing.css, one font, the logo and the orb's still; the farm video, the sheets' styles
-       and the star count come after the first paint. Words: the i18n catalogs ([data-i18n] keys: area 'front', the title
-       and the description 'multi.ld.*'), English or Bulgarian with the English · Български toggle in the top corner; the
-       English here is the no-script fallback. -->
+       farm; release 1.0 O7, astra#9), with how the partner joins under it. -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#2A1458">
-  <meta name="description" content="Harness Hollow: a cozy 3D farm for two, in your browser. Start a farm in one tap and invite a friend to farm with you, live. Free and open source." data-i18n-attr="content:multi.ld.description">
+  <meta name="description" content="Harness Hollow: уютная 3D-ферма для двоих прямо в браузере. Создайте ферму в одно касание и пригласите друга играть вместе в реальном времени. Бесплатно и с открытым исходным кодом." data-i18n-attr="content:multi.ld.description">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/assets/pwa/apple-touch-icon.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Harness Hollow">
   <meta name="color-scheme" content="dark">
-  <title>Harness Hollow · a cozy farm for two</title>
+  <title>Harness Hollow · уютная ферма для двоих</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/landing.css">
-  <!-- i18n: the remembered language, else the browser's (bg* -> Bulgarian; in step with i18n/core.js detectLang).
-       A Bulgarian page waits (at most a second) for its catalog before it shows, so it never flashes English -->
-  <script>
-    (function () {
-      var L = '';
-      try { L = localStorage.getItem('hh.lang') || ''; } catch (e) { L = ''; }
-      if (L !== 'en' && L !== 'bg') {
-        var n = (navigator.languages && navigator.languages[0]) || navigator.language || '';
-        L = /^bg\b/i.test(n) ? 'bg' : 'en';
-      }
-      document.documentElement.lang = L;
-      if (L !== 'en') {
-        document.documentElement.classList.add('i18n-wait');
-        setTimeout(function () { document.documentElement.classList.remove('i18n-wait'); }, 1000);
-      }
-    })();
-  </script>
 </head>
 <body class="landing">
   <div class="ld-sky" aria-hidden="true">

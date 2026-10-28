@@ -1,80 +1,79 @@
-// Every catalog area of the game, one English module (the source, loaded with the page) and one Bulgarian module
-// (loaded only when Bulgarian is chosen) per area. One area = one lane's files, so two lanes never edit the same catalog
-// (docs/agent-notes/i18n-core.md "Areas"). Lane A owns this list; every lane's areas are already in it: a lane fills
-// its own en/<area>.js and bg/<area>.js and never needs to touch this file. Literal import() lines on purpose: the
-// server versions every module it can find (server/static.js), and finds only literal specifiers.
-import core from './en/core.js';
-import shell from './en/shell.js';
-import hud from './en/hud.js';
-import toolbar from './en/toolbar.js';
-import toasts from './en/toasts.js';
-import moments from './en/moments.js';
-import settings from './en/settings.js';
-import social from './en/social.js';
-import game from './en/game.js';
-import multi from './en/multi.js';
-import league from './en/league.js';
-import weekly from './en/weekly.js';
-import feed from './en/feed.js';
-import goals from './en/goals.js';
-import market from './en/market.js';
-import farm from './en/farm.js';
-import collect from './en/collect.js';
-import home from './en/home.js';
-import keep from './en/keep.js';
-import privacy from './en/privacy.js';
-import front from './en/front.js';
-import dock from './en/dock.js';
-import cheer from './en/cheer.js';
-import feat from './en/feat.js';
-import boot from './en/boot.js';
+// Every catalog area of the game, one Russian module per area (the only language). One area = one lane's files, so
+// two lanes never edit the same catalog (docs/agent-notes/i18n-core.md "Areas"). Lane A owns this list; every lane's
+// areas are already in it: a lane fills its own ru/<area>.js and never needs to touch this file. Literal import()
+// lines on purpose: the server versions every module it can find (server/static.js), and finds only literal specifiers.
+import core from './ru/core.js';
+import shell from './ru/shell.js';
+import hud from './ru/hud.js';
+import toolbar from './ru/toolbar.js';
+import toasts from './ru/toasts.js';
+import moments from './ru/moments.js';
+import settings from './ru/settings.js';
+import social from './ru/social.js';
+import game from './ru/game.js';
+import multi from './ru/multi.js';
+import league from './ru/league.js';
+import weekly from './ru/weekly.js';
+import feed from './ru/feed.js';
+import goals from './ru/goals.js';
+import market from './ru/market.js';
+import farm from './ru/farm.js';
+import collect from './ru/collect.js';
+import home from './ru/home.js';
+import keep from './ru/keep.js';
+import privacy from './ru/privacy.js';
+import front from './ru/front.js';
+import dock from './ru/dock.js';
+import cheer from './ru/cheer.js';
+import feat from './ru/feat.js';
+import boot from './ru/boot.js';
 
-/** [area, English catalog, Bulgarian loader] in load order. */
+/** [area, Russian catalog] in load order. */
 export const AREAS = [
   // lane A: core and shell
-  ['core', core, () => import('./bg/core.js')],
-  ['shell', shell, () => import('./bg/shell.js')],
-  ['hud', hud, () => import('./bg/hud.js')],
-  ['toolbar', toolbar, () => import('./bg/toolbar.js')],
-  ['toasts', toasts, () => import('./bg/toasts.js')],
-  ['moments', moments, () => import('./bg/moments.js')],
-  ['settings', settings, () => import('./bg/settings.js')],
-  ['social', social, () => import('./bg/social.js')],
-  ['game', game, () => import('./bg/game.js')],
-  ['multi', multi, () => import('./bg/multi.js')],
-  // lane B: league and weekly panels (the content names table is i18n/bg/names.js)
-  ['league', league, () => import('./bg/league.js')],
-  ['weekly', weekly, () => import('./bg/weekly.js')],
+  ['core', core],
+  ['shell', shell],
+  ['hud', hud],
+  ['toolbar', toolbar],
+  ['toasts', toasts],
+  ['moments', moments],
+  ['settings', settings],
+  ['social', social],
+  ['game', game],
+  ['multi', multi],
+  // lane B: league and weekly panels (the content names table is i18n/ru/names.js)
+  ['league', league],
+  ['weekly', weekly],
   // lane C: feed, Journal, goals and quests
-  ['feed', feed, () => import('./bg/feed.js')],
-  ['goals', goals, () => import('./bg/goals.js')],
+  ['feed', feed],
+  ['goals', goals],
   // lane D: economy, collect and home panels
-  ['market', market, () => import('./bg/market.js')],
-  ['farm', farm, () => import('./bg/farm.js')],
-  ['collect', collect, () => import('./bg/collect.js')],
-  ['home', home, () => import('./bg/home.js')],
+  ['market', market],
+  ['farm', farm],
+  ['collect', collect],
+  ['home', home],
   // multi-farm hosting: the keys (a lost device's way back), privacy, and the landing page's words (also the game's
   // ideas card and star card). 'keep' and 'front' are also registered on their own (i18n/keep.js, i18n/front.js) by
   // the modules the landing page shares: register() keeps the first.
-  ['keep', keep, () => import('./bg/keep.js')],
-  ['privacy', privacy, () => import('./bg/privacy.js')],
-  ['front', front, () => import('./bg/front.js')],
+  ['keep', keep],
+  ['privacy', privacy],
+  ['front', front],
   // release 1.0 (docs/agent-briefs/release-scope.md §3 step 0): one new area per lane, so no two lanes share a
   // catalog. dock: ui-shell; cheer: life-feel; feat: features; boot: infra (harvey keeps 'harness', infra 'front').
-  ['dock', dock, () => import('./bg/dock.js')],
-  ['cheer', cheer, () => import('./bg/cheer.js')],
-  ['feat', feat, () => import('./bg/feat.js')],
-  ['boot', boot, () => import('./bg/boot.js')],
+  ['dock', dock],
+  ['cheer', cheer],
+  ['feat', feat],
+  ['boot', boot],
 ];
 
 /**
  * Areas registered on demand by their own entry, not with the page (the tests check them like the others):
- * [area, () => import(en), () => import(bg)]. 'harness': the in-game helper (i18n/harness.js, loaded by
- * ui/harness/boot.js only when the farm's server offers the helper).
+ * [area, () => import(ru)]. 'harness': the in-game helper (i18n/harness.js, loaded by ui/harness/boot.js only when
+ * the farm's server offers the helper).
  */
 export const LAZY_AREAS = [
-  ['harness', () => import('./en/harness.js'), () => import('./bg/harness.js')],
+  ['harness', () => import('./ru/harness.js')],
 ];
 
-/** Every area with its English catalog loaded: [area, en, () => import(bg)] (tests and tools). */
-export const allAreas = async () => [...AREAS, ...await Promise.all(LAZY_AREAS.map(async ([a, en, bg]) => [a, (await en()).default, bg]))];
+/** Every area with its Russian catalog loaded: [area, ru] (tests and tools). */
+export const allAreas = async () => [...AREAS, ...await Promise.all(LAZY_AREAS.map(async ([a, ru]) => [a, (await ru()).default]))];

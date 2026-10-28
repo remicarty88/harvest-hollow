@@ -6,7 +6,7 @@
 //     base   { tables: cloneTables(), hash: CONTENT_HASH, rules: RULES_VERSION }
 //     files  { path: parsedJson } (stage 1 passed)
 //     opts   { n: the version this overlay becomes, prevOverlay: the farm's active overlay (its defs and graveyard are
-//              every id ever applied on the farm), tracks: [music track ids] | null, bgNames: Set of base Bulgarian
+//              every id ever applied on the farm), tracks: [music track ids] | null, ruNames: Set of base Russian
 //              names (lowercase) | null, groundHex: the ground colour LOW_CONTRAST compares with }
 //
 // Numbers never come from the agent: econ.js computes them. Every compiled def has `m` = the milestone of its unlock
@@ -33,7 +33,7 @@ const MIN = 60_000;
 export const GROUND_HEX = '#7CC243';
 export const TEXT_HEX = '#5A3215';
 
-const BG_ARTICLES = { m: ['ът', 'ят'], f: ['та'], n: ['то'], pl: ['те'] };
+const GENDER_ENDS = { m: ['ый', 'ий', 'ой'], f: ['ая', 'яя'], n: ['ое', 'ее'] };
 
 function problem(code, file, path, message, hint, stage = 'semantic') {
   const p = { stage, code, file, path, message };
@@ -51,11 +51,11 @@ const freezeDeep = (o) => {
 };
 
 /** The Bulgarian names-table entry of a mod text block (+ desc). */
-function bgEntry(bg) {
-  const e = { name: bg.name, g: bg.g, pl: bg.pl, def: bg.def, plDef: bg.plDef };
-  e.count = bg.count ?? bg.pl;
-  e.defObj = bg.defObj ?? bg.def;
-  for (const k of ['short', 'lc', 'unit', 'desc']) if (bg[k] !== undefined) e[k] = bg[k];
+function ruEntry(ru) {
+  const e = { name: ru.name, g: ru.g, pl: ru.pl, def: ru.def, plDef: ru.plDef };
+  e.count = ru.count ?? ru.pl;
+  e.defObj = ru.defObj ?? ru.def;
+  for (const k of ['short', 'lc', 'unit', 'desc']) if (ru[k] !== undefined) e[k] = ru[k];
   return e;
 }
 
@@ -72,7 +72,7 @@ export function overlayDefs(overlay) {
 /**
  * @returns {{ ok: boolean, overlay?: object, problems: object[], warnings: object[], numbers: object }}
  */
-export function compileMod(base, given, { n = 1, prevOverlay = null, tracks = null, bgNames = null, groundHex = GROUND_HEX } = {}) {
+export function compileMod(base, given, { n = 1, prevOverlay = null, tracks = null, ruNames = null, groundHex = '#000000' } = {}) {
   const T = base.tables;
   const problems = [];
   const warnings = [];
@@ -86,7 +86,7 @@ export function compileMod(base, given, { n = 1, prevOverlay = null, tracks = nu
   const B = Object.fromEntries(['crops', 'trees', 'recipes', 'animals', 'decor', 'items', 'buildings', 'homes', 'feeds']
     .map((f) => [f, byId(T[f])]));
   const prev = overlayDefs(prevOverlay);
-  const prevNames = prevOverlay?.names?.bg ?? {};
+  const prevNames = prevOverlay?.names?.ru ?? {};
   const prevLook = prevOverlay?.look ?? {};
   const isMod = (id) => typeof id === 'string' && ID_RE.test(id);
   const baseLive = (fam, id) => {
@@ -109,33 +109,33 @@ export function compileMod(base, given, { n = 1, prevOverlay = null, tracks = nu
   for (const f of ['crops', 'trees', 'recipes', 'animals', 'decor', 'items', 'buildings', 'homes', 'feeds']) {
     for (const d of T[f] ?? []) if (typeof d.name === 'string') enNames.set(d.name.toLowerCase(), d.id);
   }
-  const bgSeen = new Map();
+  const ruSeen = new Map();
   const addedBy = (id) => prev.crops.get(id)?.mod?.n ?? prev.trees.get(id)?.mod?.n ?? prev.recipes.get(id)?.mod?.n
     ?? prev.animals.get(id)?.mod?.n ?? prev.decor.get(id)?.mod?.n ?? prev.items.get(id)?.mod?.n ?? n;
 
+  /** Add a text block's name to the index, warn on a clash. */
   const nameCheck = (file, path, id, text) => {
     const en = text?.en?.name;
-    const bg = text?.bg?.name;
+    const ru = text?.ru?.name;
     if (typeof en === 'string') {
       const k = en.toLowerCase();
-      const owner = enNames.get(k);
-      if (owner !== undefined && owner !== id && !prev.items.has(owner)) {
-        problems.push(problem('NAME_TAKEN', file, `${path}.en.name`, `"${en}" is already the name of ${owner}`, 'pick another English name'));
+      if (enNames.has(k) && enNames.get(k) !== id) {
+        problems.push(problem('NAME_TAKEN', file, `${path}.en.name`, `"${en}" is already an English name in the game`, 'pick another name'));
       } else enNames.set(k, id);
     }
-    if (typeof bg === 'string') {
-      const k = bg.toLowerCase();
-      if ((bgNames && bgNames.has(k)) || (bgSeen.has(k) && bgSeen.get(k) !== id)) {
-        problems.push(problem('NAME_TAKEN', file, `${path}.bg.name`, `"${bg}" is already a Bulgarian name in the game`, 'pick another Bulgarian name'));
-      } else bgSeen.set(k, id);
+    if (typeof ru === 'string') {
+      const k = ru.toLowerCase();
+      if ((ruNames && ruNames.has(k)) || (ruSeen.has(k) && ruSeen.get(k) !== id)) {
+        problems.push(problem('NAME_TAKEN', file, `${path}.ru.name`, `"${ru}" is already a Russian name in the game`, 'pick another Russian name'));
+      } else ruSeen.set(k, id);
     }
-    const g = text?.bg?.g;
-    const ends = BG_ARTICLES[g];
-    if (ends && typeof text.bg.def === 'string' && !text.bg.def.split(' ').some((w) => ends.some((e) => w.endsWith(e)))) {
-      warnings.push(problem('BG_FORMS', file, `${path}.bg.def`, `"${text.bg.def}" does not look like the definite form of a ${g} noun (${ends.join(' / ')})`));
+    const g = text?.ru?.g;
+    const ends = GENDER_ENDS[g];
+    if (ends && typeof text.ru.def === 'string' && !text.ru.def.split(' ').some((w) => ends.some((e) => w.endsWith(e)))) {
+      warnings.push(problem('RU_FORMS', file, `${path}.ru.def`, `"${text.ru.def}" does not look like the definite form of a ${g} noun (${ends.join(' / ')})`));
     }
-    if (typeof text?.bg?.plDef === 'string' && !text.bg.plDef.split(' ').some((w) => w.endsWith('те'))) {
-      warnings.push(problem('BG_FORMS', file, `${path}.bg.plDef`, `"${text.bg.plDef}" does not end in -те`));
+    if (typeof text?.ru?.plDef === 'string' && !text.ru.plDef.split(' ').some((w) => w.endsWith('ы') || w.endsWith('и') || w.endsWith('а') || w.endsWith('я'))) {
+      warnings.push(problem('RU_FORMS', file, `${path}.ru.plDef`, `"${text.ru.plDef}" does not look like a plural definite form`));
     }
   };
   const ground = hueOf(groundHex);
@@ -150,7 +150,7 @@ export function compileMod(base, given, { n = 1, prevOverlay = null, tracks = nu
     }
   };
   const named = (id, text) => {
-    names[id] = bgEntry(text.bg);
+    names[id] = ruEntry(text.ru);
     return text.en.name;
   };
   const itemOf = (id) => modItems.get(id) ?? B.items.get(id);
@@ -432,7 +432,7 @@ export function compileMod(base, given, { n = 1, prevOverlay = null, tracks = nu
   const art = new Set(T.rules?.LETTER_ART ?? []);
   const letters = (files['text/letters.json'] ?? []).map((l, i) => {
     if (!art.has(l.art)) problems.push(problem('UNKNOWN_REF', 'text/letters.json', `${i}.art`, `"${l.art}" is not letter art`, 'art: from docs/catalog/letterArt.json'));
-    return { id: l.id, from: l.from, art: l.art, en: { ...l.en }, bg: { ...l.bg }, n: prevOverlay?.text?.letters?.find((x) => x.id === l.id)?.n ?? n };
+    return { id: l.id, from: l.from, art: l.art, en: { ...l.en }, ru: { ...l.ru }, n: prevOverlay?.text?.letters?.find((x) => x.id === l.id)?.n ?? n };
   });
   // tips (release 1.0: never shown, removed from the format) stay an empty list: the overlay's shape is unchanged
   const tips = [];
@@ -446,11 +446,11 @@ export function compileMod(base, given, { n = 1, prevOverlay = null, tracks = nu
   const sort = (list) => list.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   for (const f of OUT_FAMILIES) { sort(out[f]); sort(graveyard[f]); }
   for (const f of Object.keys(patch)) sort(patch[f]);
-  const mj = files['mod.json'] ?? { title: { en: 'My changes', bg: 'Моите промени' } };
+  const mj = files['mod.json'] ?? { title: { en: 'My changes', ru: 'Мои изменения' } };
   const overlay = {
     format: FORMAT, n, hash: '', base: base.hash, rules: base.rules, modHash: modHash(given),
-    title: { en: mj.title.en, bg: mj.title.bg },
-    defs: out, patch, graveyard, names: { bg: names }, look, text: { letters, tips },
+    title: { en: mj.title.en, ru: mj.title.ru },
+    defs: out, patch, graveyard, names: { ru: names }, look, text: { letters, tips },
     // the speed knobs as written (release 1.0, H3: the change list says "All crops grow 20 % faster", one row)
     tuning: tuningOf(files['tuning.json']),
   };

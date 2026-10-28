@@ -1,0 +1,100 @@
+// Русский каталог, область 'shell' (дорожка A): ui/index.js (экран загрузки, выбор фермера, рамка панели,
+// собственные уведомления и баннеры оболочки) и статический каркас index.html (атрибуты [data-i18n]).
+export default {
+  // экран загрузки
+  'shell.boot.waking': 'Ферма просыпается…',
+  'shell.boot.open': 'Открываю ворота…',
+  'shell.boot.retry': 'Ферма ещё не отвечает. Пробую снова…',
+  'shell.boot.asleep': 'Сервер фермы, похоже, спит. Он запущен? Всё ещё пробую…',
+  'shell.boot.mismatch': 'Сервер фермы работает с другими файлами игры. Перезапусти его, затем перезагрузи страницу.',
+  'shell.boot.failed': 'Не удалось запустить Harness Hollow (нужен WebGL2). Проверь консоль.',
+  'shell.noscript': 'Harness Hollow требует JavaScript и WebGL2.',
+
+  // выбор фермера
+  'shell.slot.who': 'Кто играет на этом экране?',
+  'shell.slot.welcomeBack': 'С возвращением! Кто играет на этом экране?',
+  'shell.slot.pickOne': 'Выбери одного фермера для этого экрана. Второго твой партнёр возьмёт на своём экране.',
+  'shell.slot.invitedBy': '{host} приглашает тебя! Выбери имя и цвет, чтобы играть вместе.',
+  'shell.slot.invited': 'Тебя пригласили! Выбери имя и цвет, чтобы играть вместе.',
+  'shell.slot.newFarm': 'Твоя новая ферма готова! Кто будет первым фермером?',
+  'shell.slot.playing': 'Сейчас играет',
+  'shell.slot.away': 'Не в игре',
+  'shell.slot.continue': 'Продолжить',
+  'shell.slot.newDevice': 'Это ты на новом устройстве? Открой свою личную ссылку на ферму.',
+  'shell.slot.pass': 'Парольная фраза фермы',
+  'shell.slot.reclaim': 'Это я, на новом устройстве',
+  'shell.slot.name': 'Твоё имя',
+  'shell.slot.nameFor': 'Имя для фермера {n}',
+  'shell.slot.play': 'Играть',
+  'shell.slot.needName': 'Сначала введи имя.',
+  'shell.slot.needPass': 'Введи ещё парольную фразу фермы.',
+  'shell.slot.colour': 'Цвет',
+  'shell.slot.colourTaken': 'У {name} цвет {colour}. Выбери другой цвет.',
+  'shell.slot.swatchTaken': 'У {name} — {colour}',
+  'shell.slot.swatchTakenLabel': '{colour}: занят {name}',
+  'shell.slot.lockout': 'Слишком много неверных парольных фраз. Подожди минуту.',
+  'shell.swatch.teal': 'Бирюзовый',
+  'shell.swatch.coral': 'Коралловый',
+  'shell.swatch.sunflower': 'Подсолнух',
+  'shell.swatch.sky': 'Небесный',
+  'shell.swatch.plum': 'Сливовый',
+  'shell.swatch.leaf': 'Лист',
+  'shell.swatch.this': 'этот цвет',
+
+  // рамка панели
+  'shell.panel.broken': 'Эту страницу не удалось отрисовать. С фермой всё в порядке, попробуй ещё раз через мгновение.',
+  // ui/hscroll.js
+  'shell.scroll.left': 'Прокрутить влево',
+  'shell.scroll.right': 'Прокрутить вправо',
+
+  // партнёр приходит и уходит (строка ленты после имени фермера и уведомление)
+  'shell.peer.arrivedFeed': 'теперь на ферме 🌻',
+  'shell.peer.leftFeed': 'пока не здесь',
+  'shell.peer.arrived': '{name} на ферме 🌻',
+
+  // режим фото
+  'shell.photo.mode': 'Режим фото: нажми P или Esc, чтобы вернуться',
+  'shell.photo.label': 'Твоё фото',
+  'shell.photo.alt': 'Фотография фермы',
+  'shell.photo.save': 'Нажми и удерживай снимок, чтобы сохранить или поделиться.',
+
+  // партнёр просит монеты, отложенные на желание
+  'shell.wish.ribbon': 'Вопрос о желании',
+  'shell.wish.ask': '{name} хочет потратить {n} монет, отложенные на {thing}. Без ответа они освободятся через {left}.',
+  'shell.wish.askAny': '{name} хочет потратить {n} монет, отложенные на желание. Без ответа они освободятся через {left}.',
+  'shell.wish.yes': 'Да, давай',
+  'shell.wish.keep': 'Копим дальше',
+
+  // уведомления о сердцах ("+2 ♥  {reason}")
+  'shell.hearts.thanks': '{name} благодарит',
+  'shell.hearts.team': 'Командная работа',
+  'shell.hearts.tend': '{name} заботится о твоих культурах',
+  'shell.hearts.highFive': 'Дай пять!',
+  'shell.hearts.keepsake': 'Сувенир от {name}',
+  'shell.highFiveWait': '{name} поднимает руку для «дай пять» ✋ (T)',
+
+  // index.html: имена каркаса HUD для скринридеров и его подсказки
+  'shell.html.canvas': 'Ферма. Нажми на грядку, чтобы посадить или собрать; Q и E поворачивают вид.',
+  'shell.html.farm': 'Ферма',
+  'shell.html.levelCard': 'Уровень фермы',
+  'shell.html.levelSr': 'Уровень фермы',
+  'shell.html.xpBar': 'Опыт фермы',
+  'shell.html.farmers': 'Фермеры',
+  'shell.html.goals': 'Цели',
+  'shell.html.treasury': 'Казна',
+  'shell.html.coinsTip': 'Казна фермы (общая). Открой рынок',
+  'shell.html.acornsTip': 'Жёлуди (общие). Редкие лакомства для особых вещей',
+  'shell.html.heartsTip': 'Твои сердца (личные): зарабатываются в совместной игре',
+  'shell.html.barnTip': 'Амбар (I)',
+  'shell.html.coinsSr': ' монет',
+  'shell.html.acornsSr': ' желудей',
+  'shell.html.heartsSr': ' сердец',
+  'shell.html.barnSr': ' предметов в амбаре',
+  'shell.html.view': 'Вид',
+  'shell.html.together': 'Вместе',
+  'shell.html.activity': 'Активность',
+  'shell.html.seeds': 'Семена',
+  'shell.html.build': 'Строить',
+  'shell.html.tools': 'Инструменты',
+  'shell.html.menus': 'Меню фермы',
+};

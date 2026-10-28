@@ -1,7 +1,7 @@
 // Stage 4 of the mod validation (contract §3 "render", main thread, < 5 s): every new def resolves to existing model
 // keys of the right family in public/assets/models/manifest.json, its icons are made (server-side recolour of the
 // anchor's PNG, 1.4) for 128 and 64 px and decode back with visible pixels, the recolour parameters are colours, and
-// the names fit (EN and BG <= 24 characters).
+// the names fit (EN and RU <= 24 characters).
 //   renderCheck(overlay, { root, newIds? }) -> { ok, errors, icons: { '128/<id>.png': Buffer, '64/<id>.png': Buffer }, checks }
 import fs from 'node:fs';
 import path from 'node:path';

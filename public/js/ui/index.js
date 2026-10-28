@@ -105,16 +105,14 @@ import { createLayout, LAYOUT_Q } from './layout.js';
 import { createItemHints } from './item-hint.js';
 import { createInviteUi } from './invite.js';
 import { farmManifestHref } from './farm-gate.js';
-import { langToggle } from './lang-toggle.js';
 import { createKeepUi } from './keep.js';
 import { createPrivacyUi } from './privacy.js';
 import { bootHarness } from './harness/boot.js';
 import { farm } from '../net/farm.js';
 import { lazyImport, importFailed } from '../net/lazy.js';
-import { t, tn, live, onLang, lang, fmtDuration as fmtDur, name as nameOf, N } from '../i18n/index.js';
+import { t, tn, live, onLang, fmtDuration as fmtDur, name as nameOf, N } from '../i18n/index.js';
 
 export { h, icon, svgIcon, focusables, fmt, fmtShort, fmtDuration, plural, kv, playerVars, playerMark } from './dom.js';
-export { langToggle } from './lang-toggle.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -1282,7 +1280,7 @@ export function bootShare({ el, p = null, p0 = null }) {
 function lineAt(share) {
   const pct = $('boot-pct');
   const bar = $('boot-prog');
-  if (pct) pct.textContent = ` ${Math.round(share * 100)}${lang() === 'bg' ? ' %' : '%'}`;
+  if (pct) pct.textContent = ` ${Math.round(share * 100)} %`;
   if (bar) bar.style.width = `${(share * 100).toFixed(1)}%`;
 }
 /** The HUD's own pictures (icons, portraits) loaded, or 1.5 s gone: the HUD never comes in as empty circles. */
@@ -1404,8 +1402,7 @@ if (typeof document !== 'undefined') {
     const mf = document.querySelector?.('link[rel="manifest"]');
     const href = String(mf?.getAttribute('href') ?? '');
     if (!mf || href.startsWith('data:')) return;
-    if (href.startsWith('/f/')) mf.setAttribute('href', farmManifestHref(href, l));
-    else mf.setAttribute('href', l === 'bg' ? '/manifest.bg.webmanifest' : '/manifest.webmanifest');
+    if (href.startsWith('/f/')) mf.setAttribute('href', farmManifestHref(href));
   });
   onLang(() => {
     const b = $('boot');
@@ -1470,8 +1467,6 @@ function showSlots(slots, onPick, opts = {}) {
   // the language toggle re-draws the card: what was typed stays
   const typed = new Map([...document.querySelectorAll('#slot-list .slot')].map((r) => [r.dataset.slot, r.querySelector('input:not(.pass)')?.value ?? '']));
   lastSlots = { slots, onPick, opts };
-  const card = document.querySelector('#slot-picker .slot-paper');
-  if (card && !card.querySelector('.lang-pick')) card.prepend(langToggle());
   const list = $('slot-list');
   list.replaceChildren();
   $('slot-error').textContent = '';

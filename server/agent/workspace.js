@@ -98,11 +98,11 @@ export function glossaryExcerpt(text) {
 const quote = (s) => String(s).replace(/\r\n?/g, '\n').split('\n').map((l) => `> ${l}`).join('\n');
 
 /**
- * @param {{ prompts: { text: string }[], lang: 'en'|'bg', level?: number|null, errors?: object[] }} o
+ * @param {{ prompts: { text: string }[], lang: 'en'|'ru', level?: number|null, errors?: object[] }} o
  */
 export function requestText({ prompts, lang, level = null, errors = [], usable = null, removed = [] }) {
   const parts = ['# The request', '',
-    `Game language of the player: ${lang === 'bg' ? 'Bulgarian (bg)' : 'English (en)'}. Write every visible text in natural English AND Bulgarian.`];
+    `Game language of the player: ${lang === 'ru' ? 'Russian (ru)' : 'English (en)'}. Write every visible text in natural English AND Russian.`];
   if (Number.isInteger(level)) parts.push(`The farm is at level ${level}.`);
   if (usable && Number.isInteger(level)) {
     // the short list (harvey#13): the anchors this farm can use now, so the agent need not page through the catalog

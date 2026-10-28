@@ -1,7 +1,7 @@
 // The validation pipeline (contract §3): schema -> semantic (compile + the game's own validateContent) -> boot (a worker
 // on a copy of the farm) -> render (models, icons, names). Stops at the first stage with errors.
 //
-//   validateCandidate({ files, prevOverlay, graveyard, state, now, full, n, root, tracks, bgNames, pool })
+//   validateCandidate({ files, prevOverlay, graveyard, state, now, full, n, root, tracks, ruNames, pool })
 //     -> Promise<{ result: ValidationResult, overlay: object | null, icons: { '<size>/<id>.png': Buffer } }>
 //   bootPool({ size, timeoutMs }) -> { run(task, { timeoutMs }) -> Promise<bootTest result>, size }
 // A mod is offered only when result.ok with full: true.
@@ -63,7 +63,7 @@ function result({ ok, stage, full, t0, files, overlay, errors, warnings, checks 
 }
 
 export async function validateCandidate({ files: raw, prevOverlay = null, graveyard = {}, state, now = Date.now(), full = true,
-  n = 1, root, tracks = null, bgNames = null, pool, quickMs = 5000 }) {
+  n = 1, root, tracks = null, ruNames = null, pool, quickMs = 5000 }) {
   const t0 = Date.now();
   const checks = { schema: { ok: false, files: Object.keys(raw ?? {}).length } };
   const warnings = [];
@@ -75,7 +75,7 @@ export async function validateCandidate({ files: raw, prevOverlay = null, gravey
   }
   checks.schema.ok = true;
   // 2. semantic
-  const c = compileMod(base(), files, { n, prevOverlay, tracks, bgNames });
+  const c = compileMod(base(), files, { n, prevOverlay, tracks, ruNames });
   warnings.push(...c.warnings);
   checks.semantic = { ok: false, defs: { added: 0, patched: 0, retired: 0 }, numbers: c.numbers };
   if (!c.ok) {

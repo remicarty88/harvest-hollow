@@ -158,7 +158,7 @@ export function checkPrivacy(body) {
   return { ok: true, trap: typeof body.website === 'string' && body.website.trim() !== '', request: { kind: body.kind, text, contact: contact.v, lang } };
 }
 
-/** The first language tag of an Accept-Language header ("bg-BG,bg;q=0.9" -> "bg-bg"), or null. */
+/** The first language tag of an Accept-Language header ("ru-RU,ru;q=0.9" -> "ru-ru"), or null. */
 function headerLang(h) {
   const first = typeof h === 'string' ? h.split(',')[0].split(';')[0].trim() : '';
   return first && first.length <= 35 && LANG_RE.test(first) ? first.toLowerCase() : null;

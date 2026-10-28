@@ -1,231 +1,136 @@
-// i18n engine (lane A, docs/agent-notes/i18n-core.md): the active language, the catalogs, t()/tn()/tNodes() and the
-// locale formatters. One leaf dependency (net/lazy.js), no DOM at import (node tests import it), no catalogs of its own: the game's entry
-// (i18n/index.js) registers every area, the landing page registers only its own (i18n/multi.js, i18n/front.js; the way
-// back's i18n/keep.js on demand), so the front door never downloads the game's text.
+// Движок i18n (дорожка A): активный язык, каталоги, t()/tn()/tNodes() и локализованные форматтеры.
+// Одна листовая зависимость (net/lazy.js), без DOM при импорте (node-тесты импортируют модуль), без собственных
+// каталогов: запись игры (i18n/index.js) регистрирует все области, а посадочная страница — только свою
+// (i18n/multi.js, i18n/front.js; возврат в игру — i18n/keep.js по требованию), чтобы входная дверь не скачивала
+// текст игры. Язык в игре один — русский, поэтому ленивой загрузки каталогов больше нет: всё приходит статически.
 //
-//   lang() -> 'en' | 'bg'                     the language in effect (English until a catalog has loaded)
-//   setLang(l) -> Promise                     load l's catalogs (lazy: Bulgarian is fetched only when chosen), switch,
-//                                             remember it on this device, set <html lang>, re-label [data-i18n] nodes and
-//                                             tell every onLang listener (they re-render)
-//   onLang(fn(lang)) -> off                   a language switch happened (after the new catalog is in)
-//   ready() -> Promise                        the first language's catalogs are in (main.js awaits it before the UI)
-//   loaded() -> Promise                       the same for every area registered since (a lazily imported module's)
-//   register(area, en, bgLoader)              an area's English catalog and the loader of its Bulgarian one
-//   registerData(name, bgLoader) / data(name) lazy non-catalog data per language (the content names table)
+//   lang() -> 'ru'                            язык в действии
+//   setLang(l) -> Promise                     оставлен ради совместимости: принимает только 'ru'
+//   onLang(fn(lang)) -> off                   подписка на смену языка (в игре смены нет, слушатели не зовутся)
+//   ready() -> Promise                        первые каталоги на месте (main.js ждёт перед отрисовкой UI)
+//   loaded() -> Promise                       то же для областей, зарегистрированных позже
+//   register(area, ru)                        каталог области на русском
+//   registerData(name, value) / data(name)    данные, не являющиеся каталогом (таблица контентных имён)
 //
-//   t(key, params?) -> string                 a whole sentence with named params: 'Sold {n} for {coins} coins'
-//   tn(key, n, params?) -> string             the same with a count: the catalog value { one, other } is picked by
-//                                             Intl.PluralRules(lang) and {n} is the formatted count
-//   tNodes(key, params?) -> DocumentFragment  the same sentence with DOM nodes for Node-valued params (a player's name in
-//                                             its own <span class="actor">), text for the rest
+//   t(key, params?) -> string                 целое предложение с именованными параметрами: 'Продано {n} за {coins} монет'
+//   tn(key, n, params?) -> string             то же со счётчиком: значение каталога { one, other } выбирается по
+//                                             Intl.PluralRules('ru'), {n} — отформатированный счётчик
+//   tNodes(key, params?) -> DocumentFragment  то же предложение с DOM-узлами для Node-параметров (имя игрока в своём
+//                                             <span class="actor">), остальное — текст
 //   has(key) -> boolean
-//   live(map) / liveRows(rows)                objects / [k, label] rows whose labels are catalog keys read at access time
-//                                             (exported constants that must follow the language)
+//   live(map) / liveRows(rows)                объекты / строки [k, label], подписи которых читаются по ключу каталога
+//                                             в момент обращения (экспортируемые константы, обязанные следовать языку)
 //
-// Placeholders: {name} or {name:form}; {name:omit} renders nothing (a translation that drops a param on purpose: the
-// parity test then knows it was not forgotten). A number param is formatted for the locale (47 219, 1,5); a content-name ref
-// (i18n/names.js N(id) / Q(id, n)) renders in the asked form ({crop:def}, {crop:count}); a string takes :cap / :lc.
-// {x:a} / {x:A} put the English article before any param ("an Apple Tree", "An 8% chance"); Bulgarian ignores them.
-// A catalog value may be an object: { one, other } (plural, by params.n) or { m, f, n, pl, other } (gender, by
-// params.$g, else by the gender of the first content-name ref in params), or { touch, other } (a line that names a key:
-// its words for a finger, by params.$touch; see touchOf). The forms nest: { touch: { one, other }, other: { … } }.
+// Подстановки: {name} или {name:form}; {name:omit} не выводит ничего (перевод, который намеренно опускает
+// параметр). Числовой параметр форматируется для локали (47 219, 1,5); ссылка на контентное имя (i18n/names.js
+// N(id) / Q(id, n)) выводится в запрошенной форме ({crop:def}, {crop:count}); строка принимает :cap / :lc.
+// {x:a} / {x:A} у русского артикля нет — параметр выводится как есть.
+// Значение каталога может быть объектом: { one, other } (множественное, по params.n) или { m, f, n, pl, other }
+// (род, по params.$g, иначе по роду первой ссылки на контентное имя в параметрах), либо { touch, other } (строка,
+// называющая клавишу: её слова для пальца, по params.$touch; см. touchOf). Формы вкладываются: { touch: { one, other }, other: { … } }.
 //
-// Formatters: fmtNum(n) (integers, like ui/dom.js fmt), fmtDec(n, digits), fmtShort(n), fmtDuration(ms, opts),
-// fmtDate(ts, style | Intl options, tz?), fmtPct(n), list(items, 'and' | 'or'), ordinal(n, g).
+// Форматтеры: fmtNum(n) (целые), fmtDec(n, digits), fmtShort(n), fmtDuration(ms, opts), fmtDate(ts, style | Intl
+// options, tz?), fmtPct(n), list(items, 'and' | 'or'), ordinal(n, g).
 
-import { lazyImport } from '../net/lazy.js';
-
-export const LANGS = Object.freeze(['en', 'bg']);
-/** Each language in its own words: the picker's labels, never translated. */
-export const LANG_NAMES = Object.freeze({ en: 'English', bg: 'Български' });
-/** Number and date locales per language (English keeps exactly the formats the game always had). */
-const NUM_LOCALE = { en: 'en-US', bg: 'bg-BG' };
-const DATE_LOCALE = { en: 'en-GB', bg: 'bg-BG' };
+/** Язык игры. Один: русский. */
+export const LANGS = Object.freeze(['ru']);
+/** Название языка на нём самом (подписи выбора языка): никогда не переводится. */
+export const LANG_NAMES = Object.freeze({ ru: 'Русский' });
+/** Локаль чисел и дат. */
+const NUM_LOCALE = { ru: 'ru-RU' };
+const DATE_LOCALE = { ru: 'ru-RU' };
 export const STORAGE_KEY = 'hh.lang';
 
 const isBrowser = typeof document !== 'undefined' && typeof window !== 'undefined';
 
-/**
- * The language a device starts in: the one it chose before, else the browser's own (`bg*` -> Bulgarian), else English.
- * Pure (tests): `stored` is the remembered value, `navLangs` navigator.languages.
- */
+/** Язык устройства. Язык в игре один, поэтому всегда 'ru'. */
 export function detectLang(stored, navLangs = []) {
-  if (LANGS.includes(stored)) return stored;
-  const first = (Array.isArray(navLangs) ? navLangs : [navLangs]).find((l) => typeof l === 'string' && l);
-  return first && /^bg\b/i.test(first) ? 'bg' : 'en';
+  return 'ru';
 }
 
-function readStored() {
-  try { return globalThis.localStorage?.getItem(STORAGE_KEY) ?? null; } catch { return null; }
-}
-function writeStored(l) {
-  try { globalThis.localStorage?.setItem(STORAGE_KEY, l); } catch { /* private window: this page only */ }
-}
-function navLangs() {
-  const n = globalThis.navigator;
-  if (!n) return [];
-  return Array.isArray(n.languages) && n.languages.length ? n.languages : [n.language];
-}
+let cur = 'ru';
 
-// node tests always run in English (Node has a navigator, and a developer's machine may say bg_BG)
-let want = isBrowser ? detectLang(readStored(), navLangs()) : 'en';
-let cur = 'en';
-
-/** area -> { en, bg: null | object, load: () => Promise<module>, loading: Promise | null } */
+/** area -> каталог области */
 const areas = new Map();
-/** name -> { load, value: { [lang]: any }, loading } */
+/** name -> данные, не являющиеся каталогом (таблица контентных имён) */
 const datas = new Map();
-const EN = Object.create(null);
-let BG = Object.create(null);
+const CAT = Object.create(null);
 const listeners = new Set();
-const missing = new Set();
 
-/** The language in effect. */
+/** Язык в действии. */
 export const lang = () => cur;
-/** The language a switch is on its way to (equals lang() once its catalogs are in). */
-export const wantedLang = () => want;
+/** Язык, к которому идёт переключение (в игре всегда равен lang()). */
+export const wantedLang = () => cur;
 
-function loadArea(a) {
-  if (a.bg || !a.load) return Promise.resolve();
-  if (!a.loading) {
-    a.loading = lazyImport(`bg/${a.name}`, a.load).then((m) => {
-      a.bg = (m && (m.default ?? m.catalog)) || {};
-      Object.assign(BG, a.bg);
-    }).catch((err) => {
-      a.loading = null;
-      console.warn(`i18n: the Bulgarian catalog '${a.name}' did not load`, err);
-    });
-  }
-  return a.loading;
-}
-function loadData(d) {
-  if (d.value.bg !== undefined || !d.load) return Promise.resolve();
-  if (!d.loading) {
-    d.loading = lazyImport(`bg/${d.name}`, d.load).then((m) => { d.value.bg = (m && (m.default ?? m)) || null; })
-      .catch((err) => { d.loading = null; console.warn(`i18n: '${d.name}' did not load`, err); });
-  }
-  return d.loading;
-}
-function loadAll(l) {
-  if (l === 'en') return Promise.resolve();
-  return Promise.all([...[...areas.values()].map(loadArea), ...[...datas.values()].map(loadData)]);
-}
-
-let firstLoad = null;
-/** The first language's catalogs are in (always resolves; a failed Bulgarian load falls back to English). */
+/** Первые каталоги на месте (каталоги приходят статически, так что это сразу). */
 export function ready() {
-  if (!firstLoad) firstLoad = loadAll(want).then(() => { if (want === 'bg') switchTo('bg', { quiet: true }); });
-  return firstLoad;
+  return Promise.resolve();
 }
 
-/**
- * Every area registered so far has its catalog in for the language in effect: a module imported on demand registers
- * its area late (the landing page's way back) and awaits this before its first words. Always resolves.
- */
+/** Все области, зарегистрированные к этому моменту, на месте (для модулей, импортированных по требованию). */
 export function loaded() {
-  return ready().then(() => loadAll(want));
+  return Promise.resolve();
 }
 
-/** Register an area: its English catalog (the source) and the loader of its Bulgarian one. Idempotent per area. */
-export function register(name, en, bgLoader) {
+/** Зарегистрировать область: её русский каталог. Повторный вызов для той же области ничего не делает. */
+export function register(name, ru) {
   if (areas.has(name)) return;
-  for (const k of Object.keys(en || {})) {
-    if (Object.hasOwn(EN, k)) console.warn(`i18n: key '${k}' is defined twice (area '${name}')`);
-    EN[k] = en[k];
+  for (const k of Object.keys(ru || {})) {
+    if (Object.hasOwn(CAT, k)) console.warn(`i18n: ключ '${k}' объявлен дважды (область '${name}')`);
+    CAT[k] = ru[k];
   }
-  const a = { name, en, bg: null, load: bgLoader || null, loading: null };
-  areas.set(name, a);
-  // an area registered after the first load (a lazily imported panel) loads at once and re-renders when it lands
-  if (want === 'bg' && firstLoad) loadArea(a).then(() => { if (cur === 'bg') emit(); });
+  areas.set(name, ru);
 }
 
-/** Lazy per-language data that is not a catalog (the content names table): data(name) is null until loaded. */
-export function registerData(name, bgLoader) {
-  if (datas.has(name)) return;
-  const d = { name, load: bgLoader, value: {}, loading: null };
-  datas.set(name, d);
-  if (want === 'bg' && firstLoad) loadData(d).then(() => { if (cur === 'bg') emit(); });
+/** Данные, не являющиеся каталогом (таблица контентных имён). */
+export function registerData(name, value) {
+  if (!datas.has(name)) datas.set(name, value);
 }
 export function data(name) {
-  const d = datas.get(name);
-  return d ? d.value[cur] ?? null : null;
+  return datas.get(name) ?? null;
 }
 
 function emit() {
   for (const fn of [...listeners]) {
-    try { fn(cur); } catch (err) { console.error('i18n: a language listener failed', err); }
+    try { fn(cur); } catch (err) { console.error('i18n: слушатель языка упал', err); }
   }
   if (isBrowser) {
-    try { window.dispatchEvent(new CustomEvent('hh:lang', { detail: { lang: cur } })); } catch { /* old browser */ }
+    try { window.dispatchEvent(new CustomEvent('hh:lang', { detail: { lang: cur } })); } catch { /* старый браузер */ }
   }
 }
 
-function switchTo(l, { quiet = false } = {}) {
-  cur = l;
-  if (isBrowser) {
-    document.documentElement.lang = l;
-    applyStatic(document);
-  }
-  if (!quiet) emit();
-}
-
-/**
- * Switch the language: load its catalogs, remember it on this device and re-render. Resolves when the switch is done
- * (the same language again resolves at once).
- */
+/** Сменить язык. Язык один, поэтому вызов с 'ru' (или любым другим значением) просто возвращает 'ru'. */
 export async function setLang(l, { persist = true } = {}) {
-  if (!LANGS.includes(l)) return cur;
-  const from = cur;
-  want = l;
-  if (persist) writeStored(l);
-  await (firstLoad || ready());
-  await loadAll(l);
-  if (want !== l) return cur;                      // a newer choice won meanwhile
-  if (l === 'bg' && ![...areas.values()].some((a) => a.bg)) { want = cur; return cur; }   // offline: stay as we are
-  if (cur !== l) switchTo(l);
-  else if (from !== l) emit();                     // the first load switched quietly on its way: say so now
+  if (l === 'ru' && persist) {
+    try { globalThis.localStorage?.setItem(STORAGE_KEY, 'ru'); } catch { /* приватное окно: только эта страница */ }
+  }
+  if (isBrowser) document.documentElement.lang = cur;
   return cur;
 }
 
-/** Call fn(lang) after every language switch. Returns the unsubscribe function. */
+/** Вызвать fn(lang) после каждой смены языка. Возвращает функцию отписки. */
 export function onLang(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
 
-// the loading screen's picker (index.html, an inline script) works before this module loads: it stores the choice and
-// says so with an event, which this module turns into a real switch once it is here
-if (isBrowser) {
-  window.__hhLangLive = true;
-  window.addEventListener('hh:pick-lang', (e) => { const l = e?.detail?.lang; if (LANGS.includes(l)) setLang(l); });
-}
-
-// ---- lookup and formatting ----------------------------------------------------------------------------------------
-const PLURAL_KEYS = ['zero', 'one', 'two', 'few', 'many', 'other'];
+// ---- поиск и форматирование ---------------------------------------------------------------------------------------
 const GENDER_KEYS = ['m', 'f', 'n', 'pl'];
-const pluralRules = new Map();
-function pluralOfN(n) {
-  let pr = pluralRules.get(cur);
-  if (!pr) { pr = new Intl.PluralRules(cur); pluralRules.set(cur, pr); }
-  return pr.select(Number(n) || 0);
-}
+const PLURAL_KEY_NAMES = ['one', 'few', 'many'];
+const pluralRules = new Intl.PluralRules('ru');
+const pluralOfN = (n) => pluralRules.select(Number(n) || 0);
 
-/** The raw catalog value of a key in the language in effect (English when Bulgarian has none). */
+/** Сырое значение каталога по ключу. */
 export function raw(key) {
-  if (cur !== 'en' && BG[key] !== undefined) return BG[key];
-  if (EN[key] !== undefined) {
-    if (cur !== 'en' && !missing.has(key)) missing.add(key);
-    return EN[key];
-  }
-  return undefined;
+  return CAT[key];
 }
 export const has = (key) => raw(key) !== undefined;
-/** Keys the Bulgarian catalog lacked this session (English was shown): the dev console's checklist. */
-export const missingKeys = () => [...missing];
+/** Ключи, которых не было в каталоге за эту сессию (чек-лист для консоли разработчика). */
+export const missingKeys = () => [];
 
 let refRender = null;
 let refGender = null;
-/** names.js plugs in how content-name refs render ({crop:def}) and which gender they carry. */
+/** names.js подключает то, как выводятся ссылки на контентные имена ({crop:def}) и какой у них род. */
 export function setRefRenderer(render, gender) { refRender = render; refGender = gender; }
 const isRef = (v) => v && typeof v === 'object' && (Object.hasOwn(v, '$name') || Object.hasOwn(v, '$qty'));
 
@@ -234,7 +139,7 @@ function pick(v, params) {
     const keys = Object.keys(v);
     if (Object.hasOwn(v, 'touch')) {
       v = params && params.$touch ? v.touch : v.other;
-    } else if (keys.some((k) => k === 'one' || k === 'few' || k === 'many')) {
+    } else if (keys.some((k) => PLURAL_KEY_NAMES.includes(k))) {
       const n = params && (params.n ?? params.count);
       v = v[pluralOfN(n)] ?? v.other;
     } else if (keys.some((k) => GENDER_KEYS.includes(k))) {
@@ -253,52 +158,28 @@ function pick(v, params) {
 function cap(s) { return s ? s[0].toLocaleUpperCase(cur) + s.slice(1) : s; }
 function lc(s) { return s ? s[0].toLocaleLowerCase(cur) + s.slice(1) : s; }
 
-/**
- * English "a" / "an" before a word or a number as it is said: "an Apple Tree", "a Unicorn", "an hour", "an 8", "an 11",
- * "an 18,000", "a 5". Words: a vowel letter, except the "yoo"/"w" sounds (uni-, use, eu-, one); a silent h (hour, honest,
- * heir). Numbers: eight, eleven and eighteen, also as the first group of a bigger number (11,000 / 18 million).
- */
-export function anArticle(text) {
-  const s = String(text ?? '').trim();
-  const num = /^[+]?(\d[\d,.]*)/.exec(s);
-  if (num) {
-    const whole = num[1].split('.')[0];
-    const lead = whole.split(',')[0];
-    const digits = whole.replace(/,/g, '');
-    const group = lead.length > 0 && whole.includes(',') ? lead : digits.slice(0, ((digits.length - 1) % 3) + 1);
-    return digits[0] === '8' || group === '11' || group === '18' ? 'an' : 'a';
-  }
-  if (/^(uni|use|usu|uti|eu|ewe|one\b|once\b|ur[aeio])/i.test(s)) return 'a';
-  if (/^(hour|honest|honou?r|heir)/i.test(s)) return 'an';
-  return /^[aeiou]/i.test(s) ? 'an' : 'a';
-}
-
-/** One param as text, in the asked form ('omit': a translation that deliberately leaves a param out says so). */
+/** Один параметр как текст, в запрошенной форме ('omit': перевод, намеренно опускающий параметр). */
 function paramText(v, form) {
-  // English-only articles: {x:a} "an Apple Tree", {x:A} at the start of a sentence; Bulgarian has none (the text only)
-  if (form === 'a' || form === 'A') {
-    const s = paramText(v, null);
-    if (cur !== 'en' || !s) return s;
-    const art = anArticle(s);
-    return `${form === 'A' ? art[0].toUpperCase() + art.slice(1) : art} ${s}`;
-  }
+  // артиклей у русского нет: {x:a} / {x:A} просто выводят параметр
   if (v === null || v === undefined || form === 'omit') return '';
   if (isRef(v)) return refRender ? refRender(v, form) : String(v.$name ?? v.$qty);
   if (typeof v === 'number') return Number.isInteger(v) ? fmtNum(v) : fmtDec(v, 2);
-  if (typeof v === 'object' && typeof v.textContent === 'string') return form === 'cap' ? cap(v.textContent) : v.textContent;
+  if (typeof v === 'object' && typeof v.textContent === 'string') {
+    return form === 'cap' || form === 'A' ? cap(v.textContent) : v.textContent;
+  }
   const s = String(v);
-  return form === 'cap' ? cap(s) : form === 'lc' ? lc(s) : s;
+  return form === 'cap' || form === 'A' ? cap(s) : form === 'lc' ? lc(s) : s;
 }
 
 const PH = /\{([A-Za-z_$][\w$]*)(?::([\w-]+))?\}/g;
 
-/** Fill the placeholders of a catalog string (unknown ones stay visible: a missing param must show, not vanish). */
+/** Заполнить подстановки строки каталога (неизвестные остаются видимыми: пропавший параметр должен быть виден). */
 export function format(str, params) {
   if (typeof str !== 'string' || !params) return typeof str === 'string' ? str : String(str ?? '');
   return str.replace(PH, (m, k, form) => (Object.hasOwn(params, k) ? paramText(params[k], form) : m));
 }
 
-/** A whole sentence by key, with named params. An unknown key shows itself (and English is the fallback per key). */
+/** Целое предложение по ключу, с именованными параметрами. Неизвестный ключ показывает себя. */
 export function t(key, params) {
   const r = raw(key);
   const v = pick(r, params);
@@ -311,28 +192,27 @@ export function t(key, params) {
   return out;
 }
 
-// ---- touch variants -----------------------------------------------------------------------------------------------
-// A line that names a key ("Затвори (Esc)") carries its words for a finger: { touch: 'Затвори', other: 'Затвори (Esc)' }.
-// t() says `other` unless params.$touch, and remembers the pair, so ui/dom.js touchText(text, true) can swap a hint that
-// was built earlier (a data-tip) for its touch words at the moment it shows, never by rewriting translated text. Content
-// texts register theirs the same way (names.js ctext: a `touchText` next to a `text`, a `descTouch` next to a `desc`).
+// ---- варианты для пальца ------------------------------------------------------------------------------------------
+// Строка, называющая клавишу («Закрыть (Esc)»), несёт свои слова для пальца: { touch: 'Закрыть', other: 'Закрыть (Esc)' }.
+// t() говорит `other`, если не задан params.$touch, и запоминает пару, чтобы ui/dom.js touchText(text, true) мог
+// подменить подсказку, собранную раньше (data-tip), в момент показа, никогда не переписывая переведённый текст.
+// Контентные тексты регистрируют свои так же (names.js ctext: `touchText` рядом с `text`, `descTouch` рядом с `desc`).
 const TWINS_MAX = 400;
 const twins = new Map();
-/** Remember that `text` reads `touchText` to a touch player. */
+/** Запомнить, что `text` для игрока с пальцем читается как `touchText`. */
 export function touchTwin(text, touchText) {
   if (typeof text !== 'string' || typeof touchText !== 'string' || text === touchText) return;
   if (twins.has(text)) twins.delete(text);
   twins.set(text, touchText);
   if (twins.size > TWINS_MAX) twins.delete(twins.keys().next().value);
 }
-/** The touch words of a line a catalog (or a content text) gave touch words to, else undefined. */
+/** Слова для пальца строки, которой каталог (или контентный текст) их дал, иначе undefined. */
 export const touchOf = (text) => (typeof text === 'string' ? twins.get(text) : undefined);
 
-// ---- saying a line again after a switch ---------------------------------------------------------------------------
-// A toast, a notice or a banner already on screen outlives a language switch. t() and list() remember how they made
-// their latest lines (a bounded map, newest last), so the shell can say such a line again in the new language without
-// every caller handing it a function: retell(text) -> () => string, or null for a text they did not make (a chat line,
-// a sentence glued together in code: those callers pass a function themselves).
+// ---- сказать строку заново ----------------------------------------------------------------------------------------
+// Тост, уведомление или баннер на экране переживают перерисовку. t() и list() запоминают, как они сделали свои
+// последние строки (ограниченная карта, новые в конце), чтобы оболочка могла повторить такую строку без передачи
+// функции: retell(text) -> () => string, или null для текста, который сделали не они (строка чата, склейка в коде).
 const TOLD_MAX = 600;
 const LIST = Symbol('list');
 const told = new Map();
@@ -342,15 +222,12 @@ function remember(text, key, params) {
   if (told.size > TOLD_MAX) told.delete(told.keys().next().value);
 }
 
-/** A function that says `text` again in the language in effect, or null when t() / list() did not make it. Call it at
- * once (the memory is short); the function it returns keeps what it needs. */
+/** Функция, которая скажет `text` заново, или null, если его сделали не t() / list(). Вызывать сразу (память коротка). */
 export function retell(text, depth = 0) {
   if (typeof text !== 'string' || depth > 3) return null;
   const hit = told.get(text);
   if (!hit) return null;
   const [key, params] = hit;
-  // a part that is itself a line ("{text}" in "{name} was here: {text}", "12 coins" in a list) is said again with it;
-  // anything else (a farmer's name, a number already written out) stays as given
   const again = (v) => (typeof v === 'string' && v !== text ? retell(v, depth + 1) : null);
   if (key === LIST) {
     const [items, type] = params;
@@ -362,15 +239,12 @@ export function retell(text, depth = 0) {
   return () => t(key, Object.fromEntries(ps.map(([k, v, fn]) => [k, fn ? fn() : v])));
 }
 
-/** t() with a count: { one, other } picked by the language's plural rules; {n} is the formatted count. */
+/** t() со счётчиком: { one, other } по правилам русского множественного; {n} — отформатированный счётчик. */
 export function tn(key, n, params) {
   return t(key, { ...params, n });
 }
 
-/**
- * The same sentence as DOM: Node-valued params are inserted as they are (a farmer's name in its own span), the rest
- * as text. Needs a document.
- */
+/** То же предложение как DOM: Node-параметры вставляются как есть (имя фермера в своём span), остальное — текстом. */
 export function tNodes(key, params = {}) {
   const v = pick(raw(key), params);
   const str = v === undefined ? key : String(v);
@@ -383,11 +257,6 @@ export function tNodes(key, params = {}) {
     if (m.index > at) frag.append(str.slice(at, m.index));
     const p = params[k];
     const isNode = p && typeof p === 'object' && typeof p.nodeType === 'number';
-    // a node keeps itself; its English article ({actor:a}) goes in front of it as text
-    if (isNode && (form === 'a' || form === 'A') && cur === 'en' && p.textContent) {
-      const art = anArticle(p.textContent);
-      frag.append(`${form === 'A' ? art[0].toUpperCase() + art.slice(1) : art} `);
-    }
     frag.append(isNode ? p : paramText(p, form));
     at = m.index + whole.length;
   }
@@ -395,19 +264,13 @@ export function tNodes(key, params = {}) {
   return frag;
 }
 
-/**
- * An object whose values are catalog keys, read at access time: `live({ title: 'settings.mood.title' })` reads
- * 'Title screen' in English and the Bulgarian line after a switch. For exported constants that tests and callers index.
- */
+/** Объект, значения которого — ключи каталога, читаемые в момент обращения (для экспортируемых констант). */
 export function live(keys) {
   const o = {};
   for (const [k, key] of Object.entries(keys)) Object.defineProperty(o, k, { get: () => t(key), enumerable: true });
   return Object.freeze(o);
 }
-/**
- * An object of getters from an object of functions (nested plain objects too): exported text tables such as
- * GATE_TEXT = getters({ private: { title: () => t('multi.gate.private.title') } }) read the language at access time.
- */
+/** Объект геттеров из объекта функций (вложенные тоже): экспортируемые таблицы текста читают язык при обращении. */
 export function getters(o) {
   const out = {};
   for (const [k, v] of Object.entries(o)) {
@@ -416,7 +279,7 @@ export function getters(o) {
   }
   return Object.freeze(out);
 }
-/** [[left, labelKey], ...] rows whose second column is read through t() at access time (the key lists). */
+/** [[left, labelKey], ...]: вторая колонка читается через t() в момент обращения (списки клавиш). */
 export function liveRows(rows) {
   return Object.freeze(rows.map(([left, key]) => {
     const row = [left, undefined];
@@ -425,10 +288,7 @@ export function liveRows(rows) {
   }));
 }
 
-/**
- * Re-label static markup: [data-i18n="key"] sets the text, [data-i18n-attr="aria-label:key; title:key"] attributes.
- * index.html's skeleton uses it; anything built in JS calls t() itself.
- */
+/** Разметить статическую разметку: [data-i18n="key"] задаёт текст, [data-i18n-attr="aria-label:key; title:key"] — атрибуты. */
 export function applyStatic(root) {
   if (!root || typeof root.querySelectorAll !== 'function') return;
   for (const el of root.querySelectorAll('[data-i18n]')) {
@@ -443,7 +303,7 @@ export function applyStatic(root) {
   }
 }
 
-// ---- numbers ------------------------------------------------------------------------------------------------------
+// ---- числа --------------------------------------------------------------------------------------------------------
 const nf = new Map();
 function numFormat(digits) {
   const k = `${cur}:${digits}`;
@@ -451,48 +311,39 @@ function numFormat(digits) {
   if (!f) { f = new Intl.NumberFormat(NUM_LOCALE[cur] ?? cur, { maximumFractionDigits: digits }); nf.set(k, f); }
   return f;
 }
-/** A whole number for the locale: 12,340 (English) / 12 340 (Bulgarian, a no-break space from five digits on). */
+/** Целое число для локали: 12 340 (неразрывный пробел как разделитель групп). */
 export const fmtNum = (n) => numFormat(0).format(Math.trunc(Number(n) || 0));
-/** A number with up to `digits` decimals: 1.5 / 1,5. */
+/** Число с точностью до `digits` знаков: 1,5. */
 export const fmtDec = (n, digits = 1) => numFormat(digits).format(Number(n) || 0);
-/** A percent: 10% / 10 % (a no-break space in Bulgarian). */
-export const fmtPct = (n, digits = 0) => (cur === 'bg' ? `${fmtDec(n, digits)} %` : `${fmtDec(n, digits)}%`);
+/** Процент: 10%. */
+export const fmtPct = (n, digits = 0) => `${fmtDec(n, digits)}%`;
 
-/**
- * A number short enough for a pill: English 12.3k / 1.2M (as always); Bulgarian shows the full grouped number up to
- * 999 999 ("12,3 хил." is wider than "12 345") and "1,2 млн." above.
- */
+/** Число, короткое для плашки: полное с группами до 999 999, дальше «1,2 млн.». */
 export function fmtShort(n) {
   const v = Math.trunc(Number(n) || 0);
   const a = Math.abs(v);
-  if (cur === 'bg') {
-    if (a < 1_000_000) return fmtNum(v);
-    return `${fmtDec(v / 1_000_000, 1)} млн.`;
-  }
-  if (a < 10_000) return fmtNum(v);
-  if (a < 1_000_000) return `${(v / 1000).toFixed(a < 100_000 ? 1 : 0).replace(/\.0$/, '')}k`;
-  return `${(v / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (a < 1_000_000) return fmtNum(v);
+  return `${fmtDec(v / 1_000_000, 1)} млн.`;
 }
 
-// ---- durations ----------------------------------------------------------------------------------------------------
-// English is the game's own compact form; Bulgarian follows the glossary ("45 сек", "4 мин 10 сек", "2 ч 05 мин",
-// "3 дни 4 ч"), a no-break space between a number and its unit so a line never ends on a bare number
-const NB = ' ';
+// ---- длительности -------------------------------------------------------------------------------------------------
+const NB = '\u00a0';                                     // неразрывный пробел: строка не заканчивается голым числом
+const daysWord = (n) => ({ one: 'день', few: 'дня', many: 'дней' }[pluralOfN(n)] ?? 'дней');
 const UNITS = {
-  en: { s: (n) => `${n}s`, m: (n) => `${n}m`, h: (n) => `${n}h`, d: (n) => `${n}d` },
-  bg: { s: (n) => `${n}${NB}сек`, m: (n) => `${n}${NB}мин`, h: (n) => `${n}${NB}ч`, d: (n) => `${n}${NB}${n === 1 ? 'ден' : 'дни'}` },
+  s: (n) => `${n}${NB}с`,
+  m: (n) => `${n}${NB}мин`,
+  h: (n) => `${n}${NB}ч`,
+  d: (n) => `${n}${NB}${daysWord(n)}`,
 };
 /**
- * A duration: '2h 05m' | '4m 10s' | '12s' | '3d 4h' (English, as always) / '2 ч 05 мин' | '4 мин 10 сек' (Bulgarian).
- * Never negative. Options replace the English regexes callers used to run on the text (they cannot work on Bulgarian):
- *   trim: true          drop a zero second part ('2h', '4m', '3d')
- *   cut: '<units><op>'   drop the second part when its unit is one of <units> (h, m, s) and op holds: '<10' (a value
- *                        under ten), '=0' (zero) or nothing (always). 'ms<10' == the old .replace(/ 0\d?[ms]$/, ''),
- *                        's<10' == / 0\d?s$/, 's' == / \d+s$/, 'm=0' == / 00m$/
+ * Длительность: '2 ч 05 мин' | '4 мин 10 с' | '12 с' | '3 дня 4 ч'. Никогда не отрицательная. Опции:
+ *   trim: true          убрать нулевую вторую часть ('2 ч', '4 мин', '3 дня')
+ *   cut: '<units><op>'  убрать вторую часть, когда её единица входит в <units> (h, m, s) и условие держится:
+ *                       '<10' (значение меньше десяти), '=0' (ноль) или ничего (всегда).
  */
 export function fmtDuration(ms, { trim = false, cut = null } = {}) {
   const s = Math.max(0, Math.ceil((Number(ms) || 0) / 1000));
-  const u = UNITS[cur] ?? UNITS.en;
+  const u = UNITS;
   const pad = (n) => String(n).padStart(2, '0');
   const rule = typeof cut === 'string' ? /^([hms]+)(<10|=0)?$/.exec(cut) : null;
   const drops = (unit, v) => (trim && v === 0) || Boolean(rule && rule[1].includes(unit)
@@ -506,7 +357,7 @@ export function fmtDuration(ms, { trim = false, cut = null } = {}) {
   return two(u.d(Math.floor(hrs / 24)), 'h', hrs % 24, u.h(hrs % 24));
 }
 
-// ---- dates --------------------------------------------------------------------------------------------------------
+// ---- даты ---------------------------------------------------------------------------------------------------------
 const DATE_STYLES = {
   long: { weekday: 'long', day: 'numeric', month: 'long' },
   short: { weekday: 'short', day: '2-digit', month: '2-digit' },
@@ -518,9 +369,9 @@ const DATE_STYLES = {
 };
 const df = new Map();
 /**
- * A date or time for people to read, in the language's locale (English keeps en-GB, the game's format so far):
- * style 'long' (неделя, 12 октомври), 'short' (нд, 12.10), 'day', 'weekday', 'weekdayShort', 'time' (20:00),
- * 'dayTime', or Intl options. `tz` is an IANA zone (the farm's), else the device's. Never for logic (calendar.js).
+ * Дата или время для чтения людьми, в локали языка: стиль 'long' (воскресенье, 12 октября), 'short' (вс, 12.10),
+ * 'day', 'weekday', 'weekdayShort', 'time' (20:00), 'dayTime' или Intl options. `tz` — зона IANA (фермы), иначе
+ * зона устройства. Никогда для логики (calendar.js).
  */
 export function fmtDate(ts, style = 'long', tz = undefined) {
   const opts = typeof style === 'string' ? DATE_STYLES[style] ?? DATE_STYLES.long : style;
@@ -533,54 +384,35 @@ export function fmtDate(ts, style = 'long', tz = undefined) {
   return f.format(new Date(Number(ts) || 0));
 }
 
-// ---- lists and ordinals -------------------------------------------------------------------------------------------
+// ---- списки и порядковые ------------------------------------------------------------------------------------------
 const lf = new Map();
-/** "apples, pears and plums" / "ябълки, круши и сливи" ('or': "a, b or c" / "a, b или c"). */
+/** «яблоки, груши и сливы» ('or': «яблоки, груши или сливы»). */
 export function list(items, type = 'and') {
   const arr = (items || []).filter((x) => x !== null && x !== undefined && x !== '').map(String);
   const k = `${cur}:${type}`;
   let f = lf.get(k);
-  if (!f) { f = new Intl.ListFormat(cur === 'en' ? 'en' : cur, { type: type === 'or' ? 'disjunction' : 'conjunction', style: 'long' }); lf.set(k, f); }
+  if (!f) { f = new Intl.ListFormat(cur, { type: type === 'or' ? 'disjunction' : 'conjunction', style: 'long' }); lf.set(k, f); }
   const out = f.format(arr);
   if (arr.length > 1) remember(out, LIST, [arr, type]);
   return out;
 }
 
-/**
- * An ordinal: English 1st / 2nd / 3rd / 11th / 21st; Bulgarian by the noun's gender g ('m' 1-ви 2-ри 7-ми 3-ти, 'f' 1-ва,
- * 'n' 1-во): "1-во място", "3-та поръчка", "2-ри ред". Pure for the language in effect.
- */
+/** Порядковое: «1-й», «2-я», «3-е» — окончание по роду существительного g ('m' | 'f' | 'n' | 'pl'). */
 export function ordinal(n, g = 'm') {
   const v = Math.trunc(Number(n) || 0);
-  const tens = Math.abs(v) % 100;
-  const last = Math.abs(v) % 10;
-  if (cur === 'bg') {
-    const stem = tens >= 11 && tens <= 19 ? 'т' : last === 1 ? 'в' : last === 2 ? 'р' : last === 7 || last === 8 ? 'м' : 'т';
-    const end = g === 'f' ? 'а' : g === 'n' ? 'о' : 'и';
-    return `${v}-${stem}${end}`;
-  }
-  const suf = tens >= 11 && tens <= 13 ? 'th' : last === 1 ? 'st' : last === 2 ? 'nd' : last === 3 ? 'rd' : 'th';
-  return `${v}${suf}`;
+  const end = g === 'f' ? 'я' : g === 'n' || g === 'pl' ? 'е' : 'й';
+  return `${v}-${end}`;
 }
 
-/** "+25" / "−10" (a real minus sign in Bulgarian). */
+/** "+25" / "−10" (настоящий минус). */
 export function fmtSigned(n) {
   const v = Math.trunc(Number(n) || 0);
   if (v > 0) return `+${fmtNum(v)}`;
-  if (v < 0) return `${cur === 'bg' ? '−' : '-'}${fmtNum(-v)}`;
+  if (v < 0) return `−${fmtNum(-v)}`;
   return fmtNum(0);
 }
 
-/** Test hook: switch synchronously with an already-loaded Bulgarian catalog object (node tests; never the game). */
-export function __setForTest(l, bgCatalog = null) {
-  if (bgCatalog) { BG = Object.assign(Object.create(null), bgCatalog); }
-  want = l;
-  cur = l;
-  pluralRules.clear();
-}
-/** Test hook: load every registered Bulgarian area now (node tests import the files directly). */
-export async function __loadForTest(l) {
-  await loadAll(l);
-  want = l;
-  cur = l;
-}
+/** Тестовый хук: раньше переключал язык. Язык один, поэтому ничего не делает. */
+export function __setForTest() { /* язык один */ }
+/** Тестовый хук: раньше догружал каталоги. Язык один, каталоги уже на месте. */
+export async function __loadForTest() { /* каталоги статичны */ }

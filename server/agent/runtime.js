@@ -235,8 +235,8 @@ export class Runtime {
     if (body.model !== undefined && body.model !== null && (typeof body.model !== 'string' || !/^[\w.:/-]{1,64}$/.test(body.model))) {
       throw new HttpError(400, 'BAD_ARGS', { field: 'model' });
     }
-    const lang = body.lang === undefined ? 'en' : body.lang;
-    if (lang !== 'en' && lang !== 'bg') throw new HttpError(400, 'BAD_ARGS', { field: 'lang' });
+    const lang = body.lang === undefined ? 'ru' : body.lang;
+    if (lang !== 'en' && lang !== 'ru') throw new HttpError(400, 'BAD_ARGS', { field: 'lang' });
     const f = await this.farm(fk);
     // From here to the claim nothing waits: the BUSY check, the rate count and taking the farm's one slot are a single
     // synchronous step, so two farmers (or two tabs) pressing Ask together can never both pass (verifier, defect 1).

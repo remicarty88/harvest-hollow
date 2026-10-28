@@ -20,19 +20,19 @@ import { validateContent, CONTENT_HASH } from '../../shared/content/index.js';
 import { loadActive } from './hot.js';
 import { renderCheck } from './render.js';
 
-const NAME_LANGS = ['en', 'bg'];
+const NAME_LANGS = ['en', 'ru'];
 /** "Undo" all the way: the farm with no change of Harvey's (version 0). */
-const AS_IT_WAS = Object.freeze({ format: 1, title: Object.freeze({ en: 'The Farm As It Was', bg: 'Фермата както беше' }) });
-let bgCache = null;
-/** The base game's Bulgarian names table (NAME_TAKEN and the catalog). */
-export async function bgNamesTable(root) {
-  if (!bgCache) {
+const AS_IT_WAS = Object.freeze({ format: 1, title: Object.freeze({ en: 'The Farm As It Was', ru: 'Ферма, как она была' }) });
+let ruCache = null;
+/** The base game's Russian names table (NAME_TAKEN and the catalog). */
+export async function ruNamesTable(root) {
+  if (!ruCache) {
     try {
-      const m = await import(path.join(root, 'public', 'js', 'i18n', 'bg', 'names.js'));
-      bgCache = m.names ?? m.default?.names ?? m.default ?? {};
-    } catch { bgCache = {}; }
+      const m = await import(path.join(root, 'public', 'js', 'i18n', 'ru', 'names.js'));
+      ruCache = m.names ?? m.default?.names ?? m.default ?? {};
+    } catch { ruCache = {}; }
   }
-  return bgCache;
+  return ruCache;
 }
 
 let tracksCache = null;
@@ -186,7 +186,7 @@ export function createMods(ctx) {
     /** The agent's catalog; `level` (the farm's) marks the anchors this farm can use now and each crop's fastest time. */
     async catalog(fk, { level = null } = {}) {
       const s = storeOf(fk);
-      return buildCatalog({ overlay: s.activeOverlay(), graveyard: s.graveyard(), bgNames: await bgNamesTable(root), tracks: musicTracks(root), level });
+      return buildCatalog({ overlay: s.activeOverlay(), graveyard: s.graveyard(), ruNames: await ruNamesTable(root), tracks: musicTracks(root), level });
     },
 
     /**
@@ -197,7 +197,7 @@ export function createMods(ctx) {
       const s = storeOf(fk);
       const host = await ctx.host(fk);
       const state = await host.call('snapshot');
-      const names = await bgNamesTable(root);
+      const names = await ruNamesTable(root);
       const bgNames = new Set(Object.values(names).map((e) => (e && typeof e.name === 'string' ? e.name.toLowerCase() : null)).filter(Boolean));
       const { result, overlay, icons } = await validateCandidate({ files, prevOverlay: s.activeOverlay(), graveyard: s.graveyard(),
         state, now: Date.now(), full, n: s.nextN(), root, tracks: musicTracks(root).map((t) => t.id), bgNames, pool });

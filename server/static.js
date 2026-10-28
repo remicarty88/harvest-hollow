@@ -397,7 +397,7 @@ export class StaticFiles {
     const map = JSON.stringify({ imports: { 'hh-probe-ok': '/sri-probe/ok.js', 'hh-probe-bad': '/sri-probe/bad.js', 'hh-probe-ok2': '/sri-probe/ok2.js' },
       integrity: { '/sri-probe/ok.js': sri(ok), '/sri-probe/bad.js': sri('not this file'), '/sri-probe/ok2.js': sri(ok2) } });
     const page = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Integrity check</title>
 <script type="importmap">${map}</script></head>
 <body style="font:16px system-ui,sans-serif;margin:2rem"><p id="r">…</p>
