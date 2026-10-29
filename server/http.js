@@ -6,6 +6,7 @@
 // reload after a server update always picks up new code; /vendor/three without a version is cached for a week;
 // text-like files, GLB and WAV are served gzip'ed; model families and the sounds also come as one pack each (qa2 SV-03).
 import path from 'node:path';
+import crypto from 'node:crypto';
 import express from 'express';
 import { CONTENT_HASH } from '../shared/content/index.js';
 import { RULES_VERSION } from '../shared/rules/index.js';
@@ -114,6 +115,64 @@ export function devRouter(farmOf) {
   return dev;
 }
 
+/** The shortest accepted HH_ADMIN_TOKEN (the same floor the ideas admin uses, server/ideas.js). */
+export const MIN_ADMIN_TOKEN = 24;
+
+/** Constant-time comparison of two secrets (both sides hashed first, so a length difference does not leak). */
+function sameSecret(a, b) {
+  const h = (s) => crypto.createHash('sha256').update(String(s)).digest();
+  return crypto.timingSafeEqual(h(a), h(b));
+}
+
+/**
+ * The owner's admin routes (HH_ADMIN_TOKEN, at least MIN_ADMIN_TOKEN characters; unset or short = off). Unlike the
+ * dev routes this is NOT loopback-only: the owner may host the farm anywhere (a home box behind a proxy, Railway,
+ * the live service), so the bearer token is the whole gate. Mounted as `/api/admin` on a single-farm server
+ * (createApp) and `/api/f/:id/admin` on the multi-farm host (server/multi.js). `farmOf(req)` resolves the farm
+ * context (or FarmHost) a request acts on, or null for 404.
+ */
+export function adminRouter(farmOf, { token, log = console } = {}) {
+  const api = express.Router({ mergeParams: true });
+  api.use((req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    res.set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    const m = typeof req.headers.authorization === 'string' ? /^Bearer\s+(\S+)$/i.exec(req.headers.authorization) : null;
+    if (!m) return res.set('WWW-Authenticate', 'Bearer realm="harvest-hollow-admin"').status(401).json({ error: 'AUTH' });
+    if (!sameSecret(m[1], token)) return res.status(403).json({ error: 'AUTH' });
+    return next();
+  });
+  api.use(express.json({ limit: '4kb' }));
+  // Top up a farm: { coins?, acorns?, xp?, pid?, pxp? }. One journaled `_grant` system action, so it survives a
+  // replay on boot. `hh` is a FarmHost (server/farm-host.js) or a plain farm context, as in devRouter.
+  api.post('/grant', async (req, res) => {
+    const hh = await farmOf(req);
+    if (!hh) return res.status(404).json({ error: 'not found' });
+    const b = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const spec = {};
+    for (const k of ['coins', 'acorns', 'xp', 'pxp']) {
+      if (b[k] === undefined || b[k] === null) continue;
+      if (!Number.isSafeInteger(b[k]) || b[k] <= 0) return res.status(400).json({ error: 'BAD_ARGS', field: k });
+      spec[k] = b[k];
+    }
+    if (b.pid !== undefined && b.pid !== null) {
+      if (typeof b.pid !== 'string') return res.status(400).json({ error: 'BAD_ARGS', field: 'pid' });
+      spec.pid = b.pid;
+    }
+    if (!Object.keys(spec).length) return res.status(400).json({ error: 'BAD_ARGS', field: 'amount' });
+    const call = (m, ...a) => (typeof hh.call === 'function' ? hh.call(m, ...a) : farmMethods(hh)[m](...a));
+    let r;
+    try { r = await call('grant', spec); } catch (err) {
+      log.error('an admin grant failed', err);
+      return res.status(500).json({ error: 'INTERNAL' });
+    }
+    if (!r || !r.ok) return res.status(400).json({ error: (r && r.code) || 'INTERNAL' });
+    let snap = null;
+    try { snap = await call('snapshot'); } catch { snap = null; }
+    return res.json({ ok: true, wallet: snap ? snap.farm.wallet : null, xp: snap ? snap.farm.xp : null });
+  });
+  return api;
+}
+
 /**
  * Option 2's first-view hint: the high-use model families near every farmer's spawn on this farm (shared/net/packs-plan.js),
  * which a host page starts before the welcome: only families this farm reads at least SINGLE_SHARE of (the others load
@@ -160,6 +219,14 @@ export function createApp(hh) {
   app.get('/api/status', (_req, res) => res.json(status(hh)));
 
   if (hh.cfg.dev) app.use('/api/dev', devRouter(() => hh));
+  // the owner's own top-up route (HH_ADMIN_TOKEN): the single-farm twin of /api/f/:id/admin on the multi host
+  const adminToken = typeof hh.cfg.adminToken === 'string' ? hh.cfg.adminToken : (process.env.HH_ADMIN_TOKEN || '');
+  if (adminToken.length >= MIN_ADMIN_TOKEN) {
+    app.use('/api/admin', adminRouter(() => hh, { token: adminToken, log: hh.log }));
+    hh.log?.info?.('admin: the grant route is on (HH_ADMIN_TOKEN is set)');
+  } else if (adminToken) {
+    hh.log?.warn?.(`HH_ADMIN_TOKEN is shorter than ${MIN_ADMIN_TOKEN} characters: the admin grant route stays off`);
+  }
   // the in-game helper (Harness Hollow, server/harness): its REST base, the mod icons, the telemetry receiver
   if (hh.harness) {
     hh.harness.receiverRoutes(app);                // first: the agent's /api/harness/mock/... and loopback routes

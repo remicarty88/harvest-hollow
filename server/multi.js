@@ -27,6 +27,8 @@
 //                                     folder, backups included); every open screen hears deny DELETED | 401/403 AUTH
 //                                     | 404 | 429 { error: 'RATE' } (HH_DELETE_PER_HOUR per address)
 //         /api/f/:id/dev/...          HH_DEV=1 + loopback only: warp, drop, save, unload; POST /api/dev/sweep
+//         POST /api/f/:id/admin/grant Authorization: Bearer <HH_ADMIN_TOKEN>: the owner's own top-up of a farm
+//                                     (coins/acorns/xp, one journaled `_grant`; server/http.js). Off without the token.
 //         POST /api/ideas, /api/admin/ideas[/:id]   players' ideas and their admin list (server/ideas.js)
 //         POST /api/privacy, /api/admin/privacy[/:id]   privacy requests from /privacy and their admin list (ideas.js)
 // Socket: /ws?farm=<id>              unknown farm 404, too many sockets or handshakes from one address 429 (at the upgrade)
@@ -41,7 +43,7 @@ import { WebSocketServer } from 'ws';
 import { createLogger } from './log.js';
 import { Perf } from './perf.js';
 import { StaticFiles } from './static.js';
-import { mountAssets, devRouter, isLoopback, WS_DEFLATE } from './http.js';
+import { mountAssets, devRouter, adminRouter, isLoopback, MIN_ADMIN_TOKEN, WS_DEFLATE } from './http.js';
 import { FarmRegistry, ID_RE, redactArg, redactLog } from './farms.js';
 import { WindowLimiter, Counter, clientIp, maskIp } from './ip-limits.js';
 import { multiConfig } from './config.js';
@@ -340,8 +342,16 @@ export function createMultiApp(hh) {
     }
   });
 
+  // a farm a path-scoped route acts on, by the id in the URL (a sleeping farm is loaded); null = 404
+  const farmOf = async (req) => (await reg.acquire(req.params.id).catch(() => null))?.host ?? null;
+  // the owner's own top-up route, /api/f/:id/admin/grant (HH_ADMIN_TOKEN; server/http.js). Not dev-gated: the
+  // token is the whole gate, so the owner can reach their own farm wherever the host runs.
+  const adminToken = typeof cfg.adminToken === 'string' ? cfg.adminToken : (process.env.HH_ADMIN_TOKEN || '');
+  if (adminToken.length >= MIN_ADMIN_TOKEN) {
+    farmApi.use('/admin', adminRouter(farmOf, { token: adminToken, log }));
+    log.info('admin: the per-farm grant route is on (HH_ADMIN_TOKEN is set)');
+  }
   if (cfg.dev) {
-    const farmOf = async (req) => (await reg.acquire(req.params.id).catch(() => null))?.host ?? null;
     const extra = express.Router({ mergeParams: true });
     extra.use((req, res, next) => (isLoopback(req.socket.remoteAddress) ? next() : res.status(403).json({ error: 'loopback only' })));
     // Unload now (a test of the sleep -> catch-up path); refused while a socket is open.

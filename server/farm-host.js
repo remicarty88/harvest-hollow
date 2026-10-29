@@ -10,7 +10,7 @@
 //   host.attach(ws, ip)          a new socket for this farm (the main thread keeps the real ws)
 //   host.call(method, ...args)   -> Promise: grantOf(key) whoIs(token) full() inviteState(token) retireInvite() setMeta(patch)
 //                                rekey(by, slot, rejoin) waiting() players() denyAll(code) snapshot() applyOverlay(ov, o)
-//                                push(msg, { pid? }) devWarp(ms) devDrop(pid) devSave() modInfo()
+//                                push(msg, { pid? }) devWarp(ms) devDrop(pid) devSave() grant(spec) modInfo()
 //   host.stop({ code? }) / host.finish()   stopFarm / finishFarm semantics
 import { Worker } from 'node:worker_threads';
 import path from 'node:path';
@@ -65,6 +65,8 @@ export function farmMethods(hh) {
     },
     devDrop: (pid) => s().drop(pid),
     async devSave() { await hh.scheduler.save(); return hh.engine.v; },
+    /** The owner's own top-up (server/http.js POST /api/admin/grant): a journaled `_grant` system action. */
+    grant(spec) { return hh.engine.system('_grant', spec); },
     modInfo: () => hh.mod ?? null,
   };
 }

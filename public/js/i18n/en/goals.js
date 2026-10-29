@@ -289,6 +289,7 @@ export default {
   'goals.ledger.petBreed': 'A new breed for the pet',
   'goals.ledger.legacy': 'Legacy level prize',
   'goals.ledger.album': 'Album set complete',
+  'goals.ledger.admin': 'A gift from the owner',
   'goals.ledger.sellSurplus': 'Sold the surplus',
   'goals.ledger.undoSurplus': 'Surplus sale undone',
   'goals.ledger.other': 'Coins moved',

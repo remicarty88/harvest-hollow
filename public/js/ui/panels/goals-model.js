@@ -26,7 +26,7 @@ const fmt = (n) => fmtNum(n);
 /** Ledger reasons in neutral words (GDD §6.3: "who, why and when, neutral wording"), in the language in effect. */
 const LEDGER_KEYS = ['sell', 'order', 'quest', 'level', 'ribbon', 'gift', 'meter', 'almanac', 'challenge', 'together', 'combo',
   'debris', 'seed', 'uproot', 'undo', 'buy', 'land', 'slot', 'upgrade', 'tool', 'store', 'restore', 'barn', 'hurry', 'golden_seeds',
-  'cancel', 'mastery', 'crate', 'barge', 'fair', 'townsfolk', 'track', 'weeds', 'petBreed', 'legacy', 'album'];
+  'cancel', 'mastery', 'crate', 'barge', 'fair', 'townsfolk', 'track', 'weeds', 'petBreed', 'legacy', 'album', 'admin'];
 export const LEDGER_REASONS = liveKeys(Object.fromEntries(LEDGER_KEYS.map((k) => [k, `goals.ledger.${k}`])));
 /** A content name for a line: the Bulgarian ref when the names table has one, else the English the code holds. */
 const nm = (id, en, family) => (nameEntry(id, family) ? N(id, family) : en);

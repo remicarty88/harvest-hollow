@@ -289,6 +289,7 @@ export default {
   'goals.ledger.petBreed': 'Новая порода любимца',
   'goals.ledger.legacy': 'Приз за уровень наследия',
   'goals.ledger.album': 'Набор альбома собран',
+  'goals.ledger.admin': 'Подарок от владельца',
   'goals.ledger.sellSurplus': 'Продан излишек',
   'goals.ledger.undoSurplus': 'Продажа излишка отменена',
   'goals.ledger.other': 'Монеты двигались',

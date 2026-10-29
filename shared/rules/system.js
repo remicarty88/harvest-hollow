@@ -4,6 +4,7 @@
 //
 // Connection-driven: `_join` (a slot was claimed), `_seen` (a player's last socket closed: stamps lastSeenAt and
 // stands their avatar up from a Golden Hour bench).
+// On demand (a route, never the scheduler): `_grant` (the owner's own top-up, server/http.js POST /api/admin/grant).
 // Time-driven (dueSystemActions, fixed order): `_rollover` (a new farm day: Almanac, Together task; a new week:
 // Farm Weeks, Mabel's meter, Couple Challenge, the townsfolk board), `_orders` (board slots to add, refill or
 // replace), `_golden` (two players seated on one bench for COOP.goldenHour.seatMs: Golden Hour), `_fair` (the County
@@ -29,7 +30,8 @@ import { rollover, newAlmanacDay } from './daily.js';
 import { generateOrder, slotsWanted, staleOrder, refillMsOf } from './orders-board.js';
 import { feedAdd } from './feed.js';
 import { econDue, econNextDueAt } from './actions/expansions.js';
-import { useReceipts } from './economy.js';
+import { useReceipts, grant } from './economy.js';
+import { addFarmXp, addPersonalXp } from './progress.js';
 import { benchGoldenMs } from './upgrades.js';
 import { fairDue, fairNextAt, fairRoll } from './actions/fair.js';
 import { bargeDue, bargeNextAt, bargeRoll } from './actions/barge.js';
@@ -272,7 +274,30 @@ export const _barge = {
   },
 };
 
-export const SYSTEM_ACTIONS = { _join, _seen, _key, _rollover, _orders, _golden, _fair, _barge };
+/**
+ * `_grant {coins?, acorns?, xp?, pid?, pxp?}`: the owner's own top-up. NOT time-driven (never in dueSystemActions),
+ * so it runs only when a route asks for it (server/http.js: POST /api/admin/grant, token-gated). It goes through the
+ * ordinary system-action pipeline, so the change is journaled and replays like any other: a boot after a crash keeps
+ * it. coins are a reward (coins.granted, a ledger row 'admin'); acorns add to the shop currency; xp is farm XP with
+ * the level-ups it triggers; pxp is one joined player's personal XP (`pid` required with it).
+ */
+export const _grant = {
+  schema: { coins: V.opt(V.int(1, 1_000_000_000)), acorns: V.opt(V.int(1, 1_000_000_000)),
+    xp: V.opt(V.int(1, 1_000_000_000)), pid: V.opt(V.pid), pxp: V.opt(V.int(1, 1_000_000_000)) },
+  check(state, a) {
+    if (a.coins === undefined && a.acorns === undefined && a.xp === undefined && a.pxp === undefined) return ERR.BAD_ARGS;
+    if (a.pxp !== undefined && (a.pid === undefined || !Object.hasOwn(state.players, a.pid))) return ERR.BAD_ARGS;
+    return null;
+  },
+  apply(tx, a, ctx) {
+    if (a.coins !== undefined) grant(tx, ctx, a.coins, 'admin');
+    if (a.acorns !== undefined) tx.inc(['farm', 'wallet', 'acorns'], a.acorns);
+    if (a.xp !== undefined) addFarmXp(tx, ctx, a.xp);
+    if (a.pxp !== undefined) addPersonalXp(tx, ctx, a.pid, a.pxp);
+  },
+};
+
+export const SYSTEM_ACTIONS = { _join, _seen, _key, _rollover, _orders, _golden, _fair, _barge, _grant };
 
 /**
  * Time-driven system actions that are due at `now`, in a fixed order (deterministic). Each one's check() passes
